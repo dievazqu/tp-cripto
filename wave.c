@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
 	// get filename from command line
 	if (argc < 2) {
 	  printf("No wave file specified\n");
-	  return;
+	  return 1;
 	}
 	
 	strcat(filename, "/");
@@ -200,8 +200,8 @@ int main(int argc, char **argv) {
 					high_limit = 32767;
 					break;
 				case 32:
-					low_limit = -2147483648;
-					high_limit = 2147483647;
+					low_limit = -2147483648LL;
+					high_limit = 2147483647LL;
 					break;
 			}					
 
