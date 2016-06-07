@@ -1,6 +1,8 @@
 /**
  * Read and parse a wave file
  *
+ * http://truelogic.org/wordpress/2015/09/04/parsing-a-wav-file-in-c/
+ * 
  **/
 #include <unistd.h>
 #include <stdio.h>
