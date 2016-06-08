@@ -15,57 +15,93 @@
 
 // WAVE header structure
 
-unsigned char buffer4[4];
-unsigned char buffer2[2];
+BYTE buffer4[4];
+BYTE buffer2[2];
 
-char* seconds_to_time(float seconds);
+FILE *ptr_wavefile;
+char wavefilename[1024];
+char outfilename[1024];
+BYTE *out_data;
+struct HEADER header;
+char extract;
+int lsb_method;
+unsigned int out_data_size;
 
+void error(){
+	printf("Argumentos erroneos\n");
+	exit(1);
+}
 
- FILE *ptr;
- char *filename;
- struct HEADER header;
+void getLSB1(BYTE *out, int index, BYTE data){
+	int index_in_array = index/8;
+	int index_in_byte = index%8;
+	int shift = 7-index_in_byte;
+	out[index_in_array]|=(data&1)<<shift;
+}
+
+void getLSB4(BYTE *out, int index, BYTE data){
+	int index_in_array = index/2;
+	int index_in_byte = index%2;
+	int shift = 4-index_in_byte*4;
+	out[index_in_array]|=(data&0x0f)<<shift;
+}
 
 int main(int argc, char **argv) {
-
- filename = (char*) malloc(sizeof(char) * 1024);
- if (filename == NULL) {
-   printf("Error in malloc\n");
-   exit(1);
- }
-
- // get file path
- char cwd[1024];
- if (getcwd(cwd, sizeof(cwd)) != NULL) {
-   
-	strcpy(filename, cwd);
-
-	// get filename from command line
-	if (argc < 2) {
-	  printf("No wave file specified\n");
-	  return 1;
+	
+	if(argc<7 || argc%2==1){
+		error();
 	}
 	
-	strcat(filename, "/");
-	strcat(filename, argv[1]);
-	//printf("%s\n", filename);
- }
+	if(strcmp(argv[1],"-extract")==0){
+		extract=1;
+	}else if(strcmp(argv[1],"-embed")==0){
+		extract=0;
+	}else{
+		error();
+	}
+	
+	for(int i=2; i<argc; i+=2){
+		if(strcmp(argv[i], "-p")==0){
+			strcpy(wavefilename, argv[i+1]);
+		}else
+		if(strcmp(argv[i], "-in")==0){
+			//TODO: archivo de entrada
+		}else
+		if(strcmp(argv[i], "-out")==0){
+			strcpy(outfilename, argv[i+1]);
+		}else
+		if(strcmp(argv[i], "-steg")==0){
+			if(strcmp(argv[i+1],"LSB1")==0){
+				lsb_method=1;
+			}else
+			if(strcmp(argv[i+1],"LSB4")==0){
+				lsb_method=4;
+			}else
+			if(strcmp(argv[i+1],"LSBE")==0){
+			}else{
+				error();
+			}
+		}else{
+			error();
+		}
+	}
 
- // open file
- //printf("Opening  file..\n");
- ptr = fopen(filename, "rb");
- if (ptr == NULL) {
-	printf("Error opening file\n");
-	exit(1);
- }
+	ptr_wavefile = fopen(wavefilename, "rb");
+	if (ptr_wavefile == NULL) {
+		printf("Error abriendo el archivo portador\n");
+		exit(1);
+	}
  
+ 
+ // -- Desde aca es copia de: http://truelogic.org/wordpress/2015/09/04/parsing-a-wav-file-in-c/
  int read = 0;
  
  // read header parts
 
- read = fread(header.riff, sizeof(header.riff), 1, ptr);
+ read = fread(header.riff, sizeof(header.riff), 1, ptr_wavefile);
  //printf("(1-4): %s \n", header.riff); 
 
- read = fread(buffer4, sizeof(buffer4), 1, ptr);
+ read = fread(buffer4, sizeof(buffer4), 1, ptr_wavefile);
  //printf("%u %u %u %u\n", buffer4[0], buffer4[1], buffer4[2], buffer4[3]);
  
  // convert little endian to big endian 4 byte int
@@ -76,13 +112,13 @@ int main(int argc, char **argv) {
 
  //printf("(5-8) Overall size: bytes:%u, Kb:%u \n", header.overall_size, header.overall_size/1024);
 
- read = fread(header.wave, sizeof(header.wave), 1, ptr);
+ read = fread(header.wave, sizeof(header.wave), 1, ptr_wavefile);
  //printf("(9-12) Wave marker: %s\n", header.wave);
 
- read = fread(header.fmt_chunk_marker, sizeof(header.fmt_chunk_marker), 1, ptr);
+ read = fread(header.fmt_chunk_marker, sizeof(header.fmt_chunk_marker), 1, ptr_wavefile);
  //printf("(13-16) Fmt marker: %s\n", header.fmt_chunk_marker);
 
- read = fread(buffer4, sizeof(buffer4), 1, ptr);
+ read = fread(buffer4, sizeof(buffer4), 1, ptr_wavefile);
  //printf("%u %u %u %u\n", buffer4[0], buffer4[1], buffer4[2], buffer4[3]);
 
  // convert little endian to big endian 4 byte integer
@@ -92,7 +128,7 @@ int main(int argc, char **argv) {
 							(buffer4[3] << 24);
  //printf("(17-20) Length of Fmt header: %u \n", header.length_of_fmt);
 
- read = fread(buffer2, sizeof(buffer2), 1, ptr);
+ read = fread(buffer2, sizeof(buffer2), 1, ptr_wavefile);
  //printf("%u %u \n", buffer2[0], buffer2[1]);
  
  header.format_type = buffer2[0] | (buffer2[1] << 8);
@@ -106,13 +142,13 @@ int main(int argc, char **argv) {
 
  //printf("(21-22) Format type: %u %s \n", header.format_type, format_name);
 
- read = fread(buffer2, sizeof(buffer2), 1, ptr);
+ read = fread(buffer2, sizeof(buffer2), 1, ptr_wavefile);
  //printf("%u %u \n", buffer2[0], buffer2[1]);
 
  header.channels = buffer2[0] | (buffer2[1] << 8);
  //printf("(23-24) Channels: %u \n", header.channels);
 
- read = fread(buffer4, sizeof(buffer4), 1, ptr);
+ read = fread(buffer4, sizeof(buffer4), 1, ptr_wavefile);
  //printf("%u %u %u %u\n", buffer4[0], buffer4[1], buffer4[2], buffer4[3]);
 
  header.sample_rate = buffer4[0] |
@@ -122,7 +158,7 @@ int main(int argc, char **argv) {
 
  //printf("(25-28) Sample rate: %u\n", header.sample_rate);
 
- read = fread(buffer4, sizeof(buffer4), 1, ptr);
+ read = fread(buffer4, sizeof(buffer4), 1, ptr_wavefile);
  //printf("%u %u %u %u\n", buffer4[0], buffer4[1], buffer4[2], buffer4[3]);
 
  header.byterate  = buffer4[0] |
@@ -131,24 +167,24 @@ int main(int argc, char **argv) {
 						(buffer4[3] << 24);
  //printf("(29-32) Byte Rate: %u , Bit Rate:%u\n", header.byterate, header.byterate*8);
 
- read = fread(buffer2, sizeof(buffer2), 1, ptr);
+ read = fread(buffer2, sizeof(buffer2), 1, ptr_wavefile);
  //printf("%u %u \n", buffer2[0], buffer2[1]);
 
  header.block_align = buffer2[0] |
 					(buffer2[1] << 8);
  //printf("(33-34) Block Alignment: %u \n", header.block_align);
 
- read = fread(buffer2, sizeof(buffer2), 1, ptr);
+ read = fread(buffer2, sizeof(buffer2), 1, ptr_wavefile);
  //printf("%u %u \n", buffer2[0], buffer2[1]);
 
  header.bits_per_sample = buffer2[0] |
 					(buffer2[1] << 8);
  //printf("(35-36) Bits per sample: %u \n", header.bits_per_sample);
 
- read = fread(header.data_chunk_header, sizeof(header.data_chunk_header), 1, ptr);
+ read = fread(header.data_chunk_header, sizeof(header.data_chunk_header), 1, ptr_wavefile);
  //printf("(37-40) Data Marker: %s \n", header.data_chunk_header);
 
- read = fread(buffer4, sizeof(buffer4), 1, ptr);
+ read = fread(buffer4, sizeof(buffer4), 1, ptr_wavefile);
  //printf("%u %u %u %u\n", buffer4[0], buffer4[1], buffer4[2], buffer4[3]);
 
  header.data_size = buffer4[0] |
@@ -170,79 +206,76 @@ int main(int argc, char **argv) {
  printf("Approx.Duration in seconds=%f\n", duration_in_seconds);
  printf("Approx.Duration in h:m:s=%s\n", seconds_to_time(duration_in_seconds));*/
 
+// -- Hasta aca
 
-
- // read each sample from data chunk if PCM
- if (header.format_type == 1) { // PCM 
-	long i =0;
-	BYTE data_buffer[size_of_each_sample];
-	int  size_is_correct = TRUE;
-
-	// make sure that the bytes-per-sample is completely divisible by num.of channels
-	long bytes_in_each_channel = (size_of_each_sample / header.channels);
-	if ((bytes_in_each_channel  * header.channels) != size_of_each_sample) {
-		printf("Error: %ld x %ud <> %ld\n", bytes_in_each_channel, header.channels, size_of_each_sample);
-		size_is_correct = FALSE;
+ 	if(extract){
+		out_data_size = num_samples/8*lsb_method;
+		out_data = (BYTE*)calloc(out_data_size, sizeof(BYTE)); //Cambiar esto segun el lsb
+		
+	}else{
+		
 	}
-
-	if (size_is_correct) { 			
-
+	
+	long i =0;
+	// read each sample from data chunk if PCM
+	if(header.format_type == 1) { // PCM 
+		BYTE data_buffer[size_of_each_sample];
 		for (i = 0; i < num_samples; i++) {
-			read = fread(data_buffer, sizeof(data_buffer), 1, ptr);
+			read = fread(data_buffer, sizeof(data_buffer), 1, ptr_wavefile);
 			if (read == 1) {
-				int j;
-				for(j = 0; j<size_of_each_sample; j++){
-					printf("%02x ", data_buffer[j]); 
+				BYTE lsb = data_buffer[size_of_each_sample-1]; // LSB
+				if(extract){
+					switch(lsb_method){
+						case 1: 
+							getLSB1(out_data, i, lsb);
+							break;
+						case 4:
+							getLSB4(out_data, i, lsb);
+							break;
+						default:
+							break;
+					}
+				}else{
+					// TODO: guardar en otro archivo
 				}
 			}
 			else {
-				printf("Error reading file. %d bytes\n", read);
-				break;
+				printf("Error parseando el .wav\n");
+				exit(1);
 			}
-
-		} // 	for (i =1; i <= num_samples; i++) {
-
-	} // 	if (size_is_correct) { 
- } //  if (header.format_type == 1) { 
-
- printf("Closing file..\n");
- fclose(ptr);
-
-  // cleanup before quitting
- free(filename);
- return 0;
-
+		} 
+	}else{
+		printf("Error parseando el .wav\n");
+		exit(1);
+	}
+	if(extract){
+		unsigned int out_file_size =
+						(out_data[0] << 24) |
+						(out_data[1] << 16) |
+						(out_data[2] << 8) |
+						(out_data[3]);
+		
+		printf("size: %d\n", out_file_size);
+		unsigned int i = 0;
+		char ext[16];
+		do{
+			if(i+(4+out_file_size) > out_data_size){
+				printf("Error al extraer\n");
+				return 0;
+			}
+			ext[i]=out_data[i+(4+out_file_size)];
+		}while(out_data[(i++)+(4+out_file_size)]);
+		printf("ext: %s", ext);
+		FILE *f = fopen(strcat(outfilename, ext), "w");
+		fwrite(out_data+4, 1, out_file_size, f);
+		fclose(f);
+	}else{
+		
+	}
+	
+	fclose(ptr_wavefile);
+	return 0;
 }
 
-/**
- * Convert seconds into hh:mm:ss format
- * Params:
- *	seconds - seconds value
- * Returns: hms - formatted string
- **/
- char* seconds_to_time(float raw_seconds) {
-  char *hms;
-  int hours, hours_residue, minutes, seconds, milliseconds;
-  hms = (char*) malloc(100);
 
-  sprintf(hms, "%f", raw_seconds);
 
-  hours = (int) raw_seconds/3600;
-  hours_residue = (int) raw_seconds % 3600;
-  minutes = hours_residue/60;
-  seconds = hours_residue % 60;
-  milliseconds = 0;
-
-  // get the decimal part of raw_seconds to get milliseconds
-  char *pos;
-  pos = strchr(hms, '.');
-  int ipos = (int) (pos - hms);
-  char decimalpart[15];
-  memset(decimalpart, ' ', sizeof(decimalpart));
-  strncpy(decimalpart, &hms[ipos+1], 3);
-  milliseconds = atoi(decimalpart);	
-
-  
-  sprintf(hms, "%d:%d:%d.%d", hours, minutes, seconds, milliseconds);
-  return hms;
-}
