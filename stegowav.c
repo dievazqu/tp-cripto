@@ -59,8 +59,8 @@ int main(int argc, char **argv) {
 	}else{
 		error();
 	}
-	
-	for(int i=2; i<argc; i+=2){
+	int i;
+	for(i=2; i<argc; i+=2){
 		if(strcmp(argv[i], "-p")==0){
 			strcpy(wavefilename, argv[i+1]);
 		}else
@@ -216,7 +216,6 @@ int main(int argc, char **argv) {
 		
 	}
 	
-	long i =0;
 	// read each sample from data chunk if PCM
 	if(header.format_type == 1) { // PCM 
 		BYTE data_buffer[size_of_each_sample];
