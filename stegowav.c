@@ -25,6 +25,7 @@ BYTE *out_data;
 struct HEADER header;
 char extract;
 int lsb_method;
+int lsbe;
 unsigned int out_data_size;
 
 void error(){
@@ -51,7 +52,7 @@ int main(int argc, char **argv) {
 	if(argc<7 || argc%2==1){
 		error();
 	}
-	
+	lsbe=0;
 	if(strcmp(argv[1],"-extract")==0){
 		extract=1;
 	}else if(strcmp(argv[1],"-embed")==0){
@@ -78,6 +79,8 @@ int main(int argc, char **argv) {
 				lsb_method=4;
 			}else
 			if(strcmp(argv[i+1],"LSBE")==0){
+				lsb_method=1;
+				lsbe=1;
 			}else{
 				error();
 			}
@@ -211,32 +214,41 @@ int main(int argc, char **argv) {
  	if(extract){
 		out_data_size = num_samples/8*lsb_method;
 		out_data = (BYTE*)calloc(out_data_size, sizeof(BYTE)); //Cambiar esto segun el lsb
-		
 	}else{
 		
 	}
-	
+	int k=0; //Contador auxiliar, por ejemplo para el lsbe
 	// read each sample from data chunk if PCM
 	if(header.format_type == 1) { // PCM 
 		BYTE data_buffer[size_of_each_sample];
 		for (i = 0; i < num_samples; i++) {
 			read = fread(data_buffer, sizeof(data_buffer), 1, ptr_wavefile);
 			if (read == 1) {
-				BYTE lsb = data_buffer[size_of_each_sample-1]; // LSB
-				if(extract){
-					switch(lsb_method){
-						case 1: 
-							getLSB1(out_data, i, lsb);
-							break;
-						case 4:
-							getLSB4(out_data, i, lsb);
-							break;
-						default:
-							break;
+				if(lsbe){
+					int j;
+					for(j=0; j<size_of_each_sample; j++){
+						if((data_buffer[j]|1) == 0xFF){
+							getLSB1(out_data, k++,data_buffer[j]);
+						}
 					}
 				}else{
-					// TODO: guardar en otro archivo
+					BYTE lsb = data_buffer[size_of_each_sample-1]; // LSB
+					if(extract){
+						switch(lsb_method){
+							case 1: 
+								getLSB1(out_data, i, lsb);
+								break;
+							case 4:
+								getLSB4(out_data, i, lsb);
+								break;
+							default:
+								break;
+						}
+					}else{
+						// TODO: embed
+					}
 				}
+				
 			}
 			else {
 				printf("Error parseando el .wav\n");
@@ -264,7 +276,7 @@ int main(int argc, char **argv) {
 			}
 			ext[i]=out_data[i+(4+out_file_size)];
 		}while(out_data[(i++)+(4+out_file_size)]);
-		printf("ext: %s", ext);
+		printf("ext: %s\n", ext);
 		FILE *f = fopen(strcat(outfilename, ext), "w");
 		fwrite(out_data+4, 1, out_file_size, f);
 		fclose(f);
