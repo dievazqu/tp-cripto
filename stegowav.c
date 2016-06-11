@@ -21,14 +21,16 @@ BYTE buffer2[2];
 FILE *ptr_wavefile;
 char wavefilename[1024];
 char outfilename[1024];
+char infilename[1024];
 BYTE *out_data;
 struct HEADER header;
 char extract;
 int lsb_method;
 int lsbe;
 unsigned int out_data_size;
+int i;
 
-void error(){
+void parsingError(){
 	printf("Argumentos erroneos\n");
 	exit(1);
 }
@@ -48,9 +50,8 @@ void getLSB4(BYTE *out, int index, BYTE data){
 }
 
 int main(int argc, char **argv) {
-	
 	if(argc<7 || argc%2==1){
-		error();
+		parsingError();
 	}
 	lsbe=0;
 	if(strcmp(argv[1],"-extract")==0){
@@ -58,20 +59,26 @@ int main(int argc, char **argv) {
 	}else if(strcmp(argv[1],"-embed")==0){
 		extract=0;
 	}else{
-		error();
+		parsingError();
 	}
-	int i;
+	int wavefilepresent=FALSE;
+	int outfilepresent=FALSE;
+	int infilepresent=FALSE;
+	lsb_method=-1;
 	for(i=2; i<argc; i+=2){
-		if(strcmp(argv[i], "-p")==0){
+		if(strcmp(argv[i], "-p")==0 && !wavefilepresent){
+			wavefilepresent=TRUE;
 			strcpy(wavefilename, argv[i+1]);
 		}else
-		if(strcmp(argv[i], "-in")==0){
-			//TODO: archivo de entrada
+		if(strcmp(argv[i], "-in")==0 && !infilepresent){
+			infilepresent=TRUE;
+			strcpy(infilename, argv[i+1]);
 		}else
-		if(strcmp(argv[i], "-out")==0){
+		if(strcmp(argv[i], "-out")==0 && !outfilepresent){
+			outfilepresent=TRUE;
 			strcpy(outfilename, argv[i+1]);
 		}else
-		if(strcmp(argv[i], "-steg")==0){
+		if(strcmp(argv[i], "-steg")==0 && lsb_method==-1){
 			if(strcmp(argv[i+1],"LSB1")==0){
 				lsb_method=1;
 			}else
@@ -82,10 +89,19 @@ int main(int argc, char **argv) {
 				lsb_method=1;
 				lsbe=1;
 			}else{
-				error();
+				parsingError();
 			}
+		}else
+		if(strcmp(argv[i], "-a")==0){
+			//TODO: encryption method
+		}else
+		if(strcmp(argv[i], "-m")==0){
+			//TODO: block method
+		}else
+		if(strcmp(argv[i], "-pass")==0){
+			//TODO: password	
 		}else{
-			error();
+			parsingError();
 		}
 	}
 
@@ -214,8 +230,6 @@ int main(int argc, char **argv) {
  	if(extract){
 		out_data_size = num_samples/8*lsb_method;
 		out_data = (BYTE*)calloc(out_data_size, sizeof(BYTE)); //Cambiar esto segun el lsb
-	}else{
-		
 	}
 	int k=0; //Contador auxiliar, por ejemplo para el lsbe
 	// read each sample from data chunk if PCM
@@ -270,18 +284,22 @@ int main(int argc, char **argv) {
 		unsigned int i = 0;
 		char ext[16];
 		do{
-			if(i+(4+out_file_size) > out_data_size){
+			if(i+(4+out_file_size) > out_data_size || i>16){
 				printf("Error al extraer\n");
 				return 0;
 			}
 			ext[i]=out_data[i+(4+out_file_size)];
 		}while(out_data[(i++)+(4+out_file_size)]);
+		if(ext[0]!='.'){
+			printf("Error al extraer\n");
+			return 0;
+		}
 		printf("ext: %s\n", ext);
 		FILE *f = fopen(strcat(outfilename, ext), "w");
 		fwrite(out_data+4, 1, out_file_size, f);
 		fclose(f);
 	}else{
-		
+		//TODO: embed
 	}
 	
 	fclose(ptr_wavefile);
