@@ -39,7 +39,14 @@ void getLSB1(BYTE *out, int index, BYTE data){
 	int index_in_array = index/8;
 	int index_in_byte = index%8;
 	int shift = 7-index_in_byte;
-	out[index_in_array]|=(data&1)<<shift;
+	out[index_in_array]|=(data&0x01)<<shift;
+}
+
+void getLSB2(BYTE *out, int index, BYTE data){
+	int index_in_array = index/4;
+	int index_in_byte = index%4;
+	int shift = 6-index_in_byte*2;
+	out[index_in_array]|=(data&0x03)<<shift;
 }
 
 void getLSB4(BYTE *out, int index, BYTE data){
@@ -81,6 +88,9 @@ int main(int argc, char **argv) {
 		if(strcmp(argv[i], "-steg")==0 && lsb_method==-1){
 			if(strcmp(argv[i+1],"LSB1")==0){
 				lsb_method=1;
+			}else
+			if(strcmp(argv[i+1],"LSB2")==0){
+				lsb_method=2;
 			}else
 			if(strcmp(argv[i+1],"LSB4")==0){
 				lsb_method=4;
@@ -228,8 +238,8 @@ int main(int argc, char **argv) {
 // -- Hasta aca
 
  	if(extract){
-		out_data_size = num_samples/8*lsb_method;
-		out_data = (BYTE*)calloc(out_data_size, sizeof(BYTE)); //Cambiar esto segun el lsb
+		out_data_size = (num_samples/8)*lsb_method;
+		out_data = (BYTE*)calloc(out_data_size, sizeof(BYTE));
 	}
 	int k=0; //Contador auxiliar, por ejemplo para el lsbe
 	// read each sample from data chunk if PCM
@@ -246,11 +256,14 @@ int main(int argc, char **argv) {
 						}
 					}
 				}else{
-					BYTE lsb = data_buffer[size_of_each_sample-1]; // LSB
+					BYTE lsb = data_buffer[0]; // LSB
 					if(extract){
 						switch(lsb_method){
 							case 1: 
 								getLSB1(out_data, i, lsb);
+								break;
+							case 2:
+								getLSB2(out_data, i, lsb);
 								break;
 							case 4:
 								getLSB4(out_data, i, lsb);
@@ -280,23 +293,28 @@ int main(int argc, char **argv) {
 						(out_data[2] << 8) |
 						(out_data[3]);
 		
-		printf("size: %d\n", out_file_size);
+		printf("size: %u\n", out_file_size);
 		unsigned int i = 0;
-		char ext[16];
+		char ext[128];
+		int offset = 4;
 		do{
-			if(i+(4+out_file_size) > out_data_size || i>16){
+			if(i+(offset+out_file_size) > out_data_size){
 				printf("Error al extraer\n");
 				return 0;
 			}
-			ext[i]=out_data[i+(4+out_file_size)];
-		}while(out_data[(i++)+(4+out_file_size)]);
+			if(i>128){
+				printf("Extension no correcta\n");
+				return 0;
+			}
+			ext[i]=out_data[i+(offset+out_file_size)];
+		}while(out_data[(i++)+(offset+out_file_size)]);
 		if(ext[0]!='.'){
-			printf("Error al extraer\n");
+			printf("Extension no correcta\n");
 			return 0;
 		}
 		printf("ext: %s\n", ext);
 		FILE *f = fopen(strcat(outfilename, ext), "w");
-		fwrite(out_data+4, 1, out_file_size, f);
+		fwrite(out_data+offset, 1, out_file_size, f);
 		fclose(f);
 	}else{
 		//TODO: embed

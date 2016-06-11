@@ -1,0 +1,6 @@
+Una vez creados los algoritmos de extraccion:
+Se probo con cada steg sobre los 4 archivos, dando como resultados validos solo Ld con lsbe y Lc con lsb1.
+Ademas sabiendo que de los otros dos uno esta con lsb4, se sabe que dicho archivo esta encriptado.
+Por los tamaños de los archivos ocultos, se puede asegurar que el La esta oculto con lsb4 y alguna encriptacion.
+
+IMPORTANTE: Para los archivos de ejemplo no hay que dar vuelta los bytes en los samples. Para los que nos dieron en el grupo si.
