@@ -4,9 +4,6 @@
 #include <string.h>
 #include <openssl/aes.h>
 
-void print_data(const char *tittle, const void* data, int len);
-int decrypt(const BYTE* data, int size, const BYTE *password, int pass_size, BYTE* ans, encrypt_function function);
-int encrypt(const BYTE* data, int size, const BYTE *password, int pass_size, BYTE* ans, encrypt_function function);
 
 int getBlockSize(block_method block){
 	switch(block){
@@ -15,6 +12,7 @@ int getBlockSize(block_method block){
 		case AES256: return 256;
 		case DES: return 64;
 	}
+	return -1;
 }
 
 encrypt_function getFunction(block_method block, encryption_method method){
@@ -48,26 +46,19 @@ encrypt_function getFunction(block_method block, encryption_method method){
 				case DES: return EVP_des_ede3_cbc;
 			}
 	}
-}
-
-int encrypt_wrapper(const BYTE *password, const BYTE *data, int size, BYTE* ans, block_method block, encryption_method method){
-	return encrypt(data, size, password, getBlockSize(block),ans, getFunction(method, block));
-}
-
-int decrypt_wrapper(const BYTE *password, const BYTE *data, int size, BYTE* ans, block_method block, encryption_method method){
-	return decrypt(data, size, password, getBlockSize(block),ans, getFunction(method, block));
+	return NULL;
 }
 
 int encrypt(const BYTE* data, int size, const BYTE *password, int pass_size, BYTE* ans, encrypt_function function) {
 	EVP_CIPHER_CTX ctx;
-	unsigned int outl, templ;
-	char out[size];
+	int outl, templ;
+	BYTE out[size];
 	BYTE key[pass_size];
 	BYTE iv[pass_size];
 	
 	/* Getting keys and iv */ 
 	// Salt is setting in NULL
-	EVP_BytesToKey(function(), EVP_md5(), NULL, password, strlen(password),1, key, iv);
+	EVP_BytesToKey(function(), EVP_md5(), NULL, password, strlen((char*)password),1, key, iv);
 
     /* Initialize context */
     EVP_CIPHER_CTX_init(&ctx);
@@ -76,7 +67,6 @@ int encrypt(const BYTE* data, int size, const BYTE *password, int pass_size, BYT
 	EVP_EncryptFinal_ex(&ctx, out + outl, &templ);
 	outl +=templ;
 	memcpy(ans, out, outl);
-	
 	/* Clean context struct */ 
 	EVP_CIPHER_CTX_cleanup(&ctx);
 	return outl;
@@ -91,7 +81,7 @@ int decrypt(const BYTE* data, int size, const BYTE *password, int pass_size, BYT
 
 	/* Getting keys and iv */ 
 	// Salt is setting in NULL
-    EVP_BytesToKey(function(), EVP_md5(), NULL, password, strlen(password),1, key, iv);
+    EVP_BytesToKey(function(), EVP_md5(), NULL, password, strlen((char*)password),1, key, iv);
 
 	/* Initialize context */
 	EVP_CIPHER_CTX_init(&ctx);
@@ -99,8 +89,31 @@ int decrypt(const BYTE* data, int size, const BYTE *password, int pass_size, BYT
 	EVP_DecryptUpdate(&ctx, out, &outl, data, size); 
 	EVP_DecryptFinal_ex(&ctx, out + outl, &templ);
 	outl +=templ;
-	
+	memcpy(ans, out, outl);
 	/* Clean context struct */ 
 	EVP_CIPHER_CTX_cleanup(&ctx);
 	return outl;
 }
+
+int encrypt_wrapper(const BYTE *data, int size, const BYTE *password, BYTE* ans, encryption_method method, block_method block){
+	return encrypt(data, size, password, getBlockSize(block),ans, getFunction(method, block));
+}
+
+int decrypt_wrapper(const BYTE *data, int size, const BYTE *password, BYTE* ans, encryption_method method, block_method block){
+	return decrypt(data, size, password, getBlockSize(block),ans, getFunction(method, block));
+}
+/*
+int main(int argc, char**argv){
+	char msg[100];
+	char ans[100];
+	char ans2[100];
+	scanf("%s", msg);
+	encrypt_wrapper((BYTE*)msg, strlen(msg), (BYTE*)"nada", ans, AES128, CBC);
+	decrypt_wrapper((BYTE*)ans, strlen(ans), (BYTE*)"nada", ans2, AES128, CBC);
+	printf("%s %d\n", ans, strlen(ans));
+	printf("%s %d\n", ans2, strlen(ans2));
+	int i=0;
+	while(ans2[i]) {printf("%02x ", (unsigned char)ans2[i]); i++;}
+	return 0;
+}
+*/
