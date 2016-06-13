@@ -39,7 +39,7 @@ void parsingError(){
 void getLSB1(BYTE *out, int index, BYTE data){
 	int index_in_array = index/8;
 	int index_in_byte = index%8;
-	int shift = 7-index_in_byte;
+	int  shift = 7-index_in_byte;
 	out[index_in_array]|=(data&0x01)<<shift;
 }
 
@@ -55,6 +55,12 @@ void getLSB4(BYTE *out, int index, BYTE data){
 	int index_in_byte = index%2;
 	int shift = 4-index_in_byte*4;
 	out[index_in_array]|=(data&0x0f)<<shift;
+}
+
+void getLSB8(BYTE *out, int index, BYTE data){
+	int index_in_array = index;
+	int index_in_byte = index;
+	out[index_in_array]|=(data&0xff);
 }
 
 int main(int argc, char **argv) {
@@ -95,6 +101,9 @@ int main(int argc, char **argv) {
 			}else
 			if(strcmp(argv[i+1],"LSB4")==0){
 				lsb_method=4;
+			}else
+			if(strcmp(argv[i+1],"LSB8")==0){
+				lsb_method=8;
 			}else
 			if(strcmp(argv[i+1],"LSBE")==0){
 				lsb_method=1;
@@ -269,6 +278,8 @@ int main(int argc, char **argv) {
 							case 4:
 								getLSB4(out_data, i, lsb);
 								break;
+							case 8:
+								getLSB8(out_data, i, lsb);
 							default:
 								break;
 						}
