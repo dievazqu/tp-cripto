@@ -20,7 +20,7 @@ int getBlockSize(block_method block){
 	return -1;
 }
 
-encrypt_function getFunction(block_method block, encryption_method method){
+encrypt_function getFunction(encryption_method method, block_method block){
 	switch(block){
 		case ECB:
 			switch(method){
@@ -78,17 +78,33 @@ int encrypt(const BYTE* data, int size, const BYTE *password, int pass_size, BYT
 }
 
 int decrypt(const BYTE* data, int size, const BYTE *password, int pass_size, BYTE* ans, encrypt_function function) {
+    /*EVP_CIPHER_CTX ctx;
+	BYTE out[size]; 
+	int outl, templ;
+	unsigned int keyLen, ivLen;
+	keyLen = EVP_CIPHER_key_length(function());
+	ivLen = EVP_CIPHER_iv_length(function());
+	BYTE key[keyLen];
+	BYTE iv[ivLen];
+	EVP_BytesToKey(function(), EVP_md5(), NULL, password, pass_size,1, key, iv);
+	EVP_CIPHER_CTX_init(&ctx);
+	EVP_DecryptInit_ex(&ctx, function(), NULL, key, iv);
+	EVP_DecryptUpdate(&ctx, out, &outl, data, size);
+	EVP_DecryptFinal_ex(&ctx, out + outl, &templ); 
+	outl +=templ;
+	memcpy(ans, out, outl);
+	EVP_CIPHER_CTX_cleanup(&ctx);*/
 	EVP_CIPHER_CTX ctx;
 	BYTE out[size]; 
 	int outl, templ;
     BYTE key[EVP_CIPHER_key_length(function())];
     BYTE iv[EVP_CIPHER_iv_length(function())];
 
-	/* Getting keys and iv */ 
+	// Getting keys and iv 
 	// Salt is setting in NULL
     EVP_BytesToKey(function(), EVP_md5(), NULL, password, pass_size,1, key, iv);
 
-	/* Initialize context */
+	// Initialize context 
 	EVP_CIPHER_CTX_init(&ctx);
 	EVP_DecryptInit_ex(&ctx, function(), NULL, key, iv); 
 	EVP_DecryptUpdate(&ctx, out, &outl, data, size); 
@@ -96,7 +112,7 @@ int decrypt(const BYTE* data, int size, const BYTE *password, int pass_size, BYT
 	outl +=templ;
 	memcpy(ans, out, outl);
 	//ans[outl]=0; //Maybe?
-	/* Clean context struct */ 
+	// Clean context struct 
 	EVP_CIPHER_CTX_cleanup(&ctx);
 	return outl;
 }
@@ -110,16 +126,24 @@ int decrypt_wrapper(const BYTE *data, int size, const BYTE *password, BYTE* ans,
 }
 
 /*int main(int argc, char**argv){
-	char msg[100];
-	char ans[100];
-	char ans2[100];
+	char msg[1000];
+	BYTE ans[1000];
+	BYTE ans2[1000];
 	scanf("%s", msg);
-	encrypt_wrapper((BYTE*)msg, strlen(msg), (BYTE*)"nada", ans, AES192, CBC);
-	decrypt_wrapper((BYTE*)ans, strlen(ans), (BYTE*)"nada", ans2, AES129, CBC);
-	printf("%s           %d\n", ans, strlen(ans));
-	printf("%s           %d\n", ans2, strlen(ans2));
-	int i=0;
-	while(ans2[i]) {printf("%02x ", (unsigned char)ans2[i]); i++;}
+	FILE* f = fopen(msg, "r");
+	FILE* out = fopen("encripted.txt", "w");
+	fread(ans+4, 11, 1, f);
+	ans[0]=0;
+	ans[1]=0;
+	ans[2]=0;
+	ans[3]=11;
+	ans[15]='.';
+	ans[16]='t';
+	ans[17]='x';
+	ans[18]='t';
+	int size= encrypt_wrapper((BYTE*)ans, 19, (BYTE*)"nada", (BYTE*)ans2, AES192, CBC);
+	fwrite(ans2, size, 1, out);
+	fclose(out);
 	return 0;
 }*/
 

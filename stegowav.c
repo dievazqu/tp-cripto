@@ -136,7 +136,7 @@ int main(int argc, char **argv) {
 				lsb_method=4;
 			}else
 			if(strcmp(argv[i+1],"LSBE")==0){
-				lsb_method=1;
+				lsb_method=4;
 				lsbe=1;
 			}else{
 				parsingError();
@@ -413,7 +413,7 @@ int main(int argc, char **argv) {
 						}
 					}
 				}else{
-					BYTE* lsb = data_buffer+(size_of_each_sample-1); // LSB
+					BYTE* lsb = data_buffer+(0); // LSB
 					if(extract){
 						switch(lsb_method){
 							case 1: 
@@ -473,6 +473,7 @@ int main(int argc, char **argv) {
 			printf("size: %u\n", out_file_size);
 			int a=decrypt_wrapper(out_data+4, out_file_size, (BYTE*)password, ans, enc_met, block_met);
 			printf("%d\n", a);
+			free(out_data);
 			out_data = ans;
 			out_file_size =
 							(out_data[0] << 24) |
