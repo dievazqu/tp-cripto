@@ -37,8 +37,8 @@ struct HEADER header;
 char extract;
 int lsb_method;
 int lsbe;
-unsigned int out_data_size;
-int i;
+unsigned long out_data_size;
+long i;
 char *password;
 
 void parsingError(){
@@ -46,7 +46,7 @@ void parsingError(){
 	exit(1);
 }
 
-void addLSB1(BYTE *in, int index, BYTE *buffer){
+void addLSB1(BYTE *in, long index, BYTE *buffer){
 	int index_in_array = index/8;
 	int index_in_byte = index%8;
 	int shift = 7-index_in_byte;
@@ -60,7 +60,7 @@ void addLSB1(BYTE *in, int index, BYTE *buffer){
 	}
 }
 
-void addLSB4(BYTE *in, int index, BYTE *buffer){
+void addLSB4(BYTE *in, long index, BYTE *buffer){
 	index/=4;
 	int index_in_array = index/2;
 	int index_in_byte = index%2;
@@ -70,21 +70,21 @@ void addLSB4(BYTE *in, int index, BYTE *buffer){
 	*buffer|=b;
 }
 
-void getLSB1(BYTE *out, int index, BYTE data){
+void getLSB1(BYTE *out, long index, BYTE data){
 	int index_in_array = index/8;
 	int index_in_byte = index%8;
 	int  shift = 7-index_in_byte;
 	out[index_in_array]|=(data&0x01)<<shift;
 }
 
-void getLSB2(BYTE *out, int index, BYTE data){
+void getLSB2(BYTE *out, long index, BYTE data){
 	int index_in_array = index/4;
 	int index_in_byte = index%4;
 	int shift = 6-index_in_byte*2;
 	out[index_in_array]|=(data&0x03)<<shift;
 }
 
-void getLSB4(BYTE *out, int index, BYTE data){
+void getLSB4(BYTE *out, long index, BYTE data){
 	int index_in_array = index/2;
 	int index_in_byte = index%2;
 	int shift = 4-index_in_byte*4;
@@ -356,7 +356,7 @@ int main(int argc, char **argv) {
 // -- Hasta aca
 	FILE* in_file;
 	BYTE* in_data;
-	unsigned int in_file_size;
+	unsigned long in_file_size;
  	if(extract){
 		out_data_size = (num_samples/8)*lsb_method;
 		out_data = (BYTE*)calloc(out_data_size, sizeof(BYTE));
@@ -366,6 +366,10 @@ int main(int argc, char **argv) {
 		in_file_size = ftell(in_file);
 		rewind(in_file);
 		in_data = (BYTE*)malloc(in_file_size+4+strlen(infilename));
+		if(in_data==NULL){
+			printf("El archivo a embeber es muy grande");
+			exit(1);
+		}
 		memcpy(in_data, &in_file_size, 4);
 		in_data[0] = INT_TO_BYTE(in_file_size, 0);
 		in_data[1] = INT_TO_BYTE(in_file_size, 1);
@@ -376,13 +380,13 @@ int main(int argc, char **argv) {
 						(in_data[1] << 16) |
 						(in_data[2] << 8) |
 						(in_data[3]);
-		printf("%d\n", out_file_size);
+		printf("size of file to embed %d\n", out_file_size);
 		fread(in_data+4, in_file_size, 1, in_file);
 		char *ptr_in = infilename;
 		while(*ptr_in!='.'){
 			ptr_in++;
 		}
-		int ptr=4+in_file_size;
+		long ptr=4+in_file_size;
 		while(*ptr_in!=0){
 			in_data[ptr]=*ptr_in;
 			ptr++;
@@ -390,6 +394,24 @@ int main(int argc, char **argv) {
 		}
 		in_data[ptr]='\0';
 		in_file_size=ptr+1;	
+		if(password!=NULL){		
+			BYTE* aux=malloc(in_file_size+4);
+			unsigned long new_size = encrypt_wrapper(in_data, in_file_size, (BYTE*)password, aux+4, enc_met, block_met);
+			free(in_data);
+			in_data=aux;
+			in_data[0] = INT_TO_BYTE(new_size, 0);
+			in_data[1] = INT_TO_BYTE(new_size, 1);
+			in_data[2] = INT_TO_BYTE(new_size, 2);
+			in_data[3] = INT_TO_BYTE(new_size, 3);
+			in_file_size = new_size+4;
+			unsigned int out_file_size =
+						(in_data[0] << 24) |
+						(in_data[1] << 16) |
+						(in_data[2] << 8) |
+						(in_data[3]);
+			printf("size of file encrypted %d\n", out_file_size);
+	
+		}
 	}
 	
 	int k=0; //Contador auxiliar, por ejemplo para el lsbe
@@ -400,7 +422,7 @@ int main(int argc, char **argv) {
 			read = fread(data_buffer, sizeof(data_buffer), 1, ptr_wavefile);
 			if (read == 1) {
 				if(lsbe){
-					int j;
+					long j;
 					for(j=0; j<size_of_each_sample; j++){
 						if(data_buffer[j] == 0xFE || data_buffer[j] == 0xFF){
 							if(extract){
@@ -413,7 +435,7 @@ int main(int argc, char **argv) {
 						}
 					}
 				}else{
-					BYTE* lsb = data_buffer+(0); // LSB
+					BYTE* lsb = data_buffer+(size_of_each_sample-1); // LSB
 					if(extract){
 						switch(lsb_method){
 							case 1: 
@@ -463,16 +485,15 @@ int main(int argc, char **argv) {
 	}
 	
 	if(extract){
-		unsigned int out_file_size =
+		unsigned long out_file_size =
 						(out_data[0] << 24) |
 						(out_data[1] << 16) |
 						(out_data[2] << 8) |
 						(out_data[3]);
 		if(password){
 			BYTE *ans = malloc(out_file_size);
-			printf("size: %u\n", out_file_size);
-			int a=decrypt_wrapper(out_data+4, out_file_size, (BYTE*)password, ans, enc_met, block_met);
-			printf("%d\n", a);
+			printf("size before decrypted: %lu\n", out_file_size);
+			decrypt_wrapper(out_data+4, out_file_size, (BYTE*)password, ans, enc_met, block_met);
 			free(out_data);
 			out_data = ans;
 			out_file_size =
@@ -481,8 +502,8 @@ int main(int argc, char **argv) {
 							(out_data[2] << 8) |
 							(out_data[3]);
 		}
-		printf("size: %u\n", out_file_size);
-		unsigned int i = 0;
+		printf("size: %lu\n", out_file_size);
+		unsigned long i = 0;
 		char ext[128];
 		int offset = 4;
 		do{
@@ -496,10 +517,10 @@ int main(int argc, char **argv) {
 			}
 			ext[i]=out_data[i+(offset+out_file_size)];
 		}while(out_data[(i++)+(offset+out_file_size)]);
-	/*	if(ext[0]!='.'){
-			printf("Extension no correcta asda\n");
+		if(ext[0]!='.'){
+			printf("Extension no correcta\n");
 			return 0;
-		}*/
+		}
 		printf("ext: %s\n", ext);
 		FILE *f = fopen(strcat(outfilename, ext), "w");
 		fwrite(out_data+offset, 1, out_file_size, f);
@@ -511,6 +532,7 @@ int main(int argc, char **argv) {
 			fclose(out_wavefile);
 			remove(outfilename);
 		}else{
+			printf("Archivo embebido con exito\n");
 			fclose(out_wavefile);
 		}
 	}
