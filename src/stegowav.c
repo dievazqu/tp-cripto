@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/time.h>
 #include "wave.h"
 #include "type.h"
 #include "openssl-lib.h"
@@ -19,7 +20,6 @@
 #define INT_TO_BYTE(i, index) ((i&(0xFF<<(24-index*8)))>>((24-index*8)))
 
 // WAVE header structure
-
 
 encryption_method enc_met;
 block_method block_met;
@@ -93,6 +93,10 @@ void getLSB4(BYTE *out, long index, BYTE data){
 
 
 int main(int argc, char **argv) {
+	
+//	struct timeval stop, start;
+//	gettimeofday(&start, NULL);
+
 	if(argc<7 || argc%2==1){
 		parsingError();
 	}
@@ -538,6 +542,9 @@ int main(int argc, char **argv) {
 	}
 	
 	fclose(ptr_wavefile);
+	//gettimeofday(&stop, NULL);
+	
+	//printf("Tiempo en ms: %lu\n", ((stop.tv_sec-start.tv_sec)*1000000+(stop.tv_usec-start.tv_usec))/1000);
 	return 0;
 }
 
